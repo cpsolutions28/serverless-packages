@@ -1,0 +1,74 @@
+service: account-activity
+
+plugins:
+  - serverless-webpack
+  - serverless-offline
+  - serverless-aws-alias
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  memorySize: 1024 # optional, in MB, default is 1024
+  timeout: 6 # optional, in seconds, default is 6
+
+  stage: ${env:SLS_AWS_STAGE}
+  region: ${env:SLS_AWS_REGION}
+
+  environment:
+      PLACE: "holder"
+
+  
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:UpdateItem
+      Resource:
+        Fn::GetAtt: [ AccountActivity, Arn ]
+  
+
+package:
+  individually: true
+  exclude:
+    - ".*/**"
+
+functions:
+  account-activity:
+    handler: build/index.handler
+    environment:
+    
+      AccountActivity:
+        Ref: AccountActivity
+    
+    package:
+      include:
+        - build/**
+
+    events:
+      - http:
+          path: account-activity
+          method: get
+
+
+resources:
+  Resources:
+    AccountActivity:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: AccountActivity
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+        StreamSpecification:
+          StreamViewType: NEW_IMAGE
+
+
+
+custom:
+  webpack:
+    webpackConfig: '../../webpack.config.js'
