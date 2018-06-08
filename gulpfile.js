@@ -19,27 +19,27 @@ let targetProject = 'account-activity';
 
 const tsProject = ts.createProject('tsconfig.json', {
     typescript: require('typescript'),
-    declaration: true
+    declaration: true,
 });
 
 const typescriptSources = glob
     .sync('./packages/**/*.ts')
     .filter(nodeModulesPaths)
-    .filter((dirPath) => dirPath.indexOf('.d.ts') === -1);
-const sourceDistDirectories = glob.sync('./packages/src/*/*/').map((dir) => path.resolve(dir + 'dist'));
-const sourceDistTsConfig = sourceDistDirectories.map((dir) => path.join(dir, 'tsconfig.json'));
+    .filter(dirPath => dirPath.indexOf('.d.ts') === -1);
+const sourceDistDirectories = glob.sync('./packages/src/*/*/').map(dir => path.resolve(dir + 'dist'));
+const sourceDistTsConfig = sourceDistDirectories.map(dir => path.join(dir, 'tsconfig.json'));
 
-const packageJSONsPaths = glob.sync('packages/*/**/package.json', {ignore: '**/node_modules/**'});
-const fullPackagePath = packageJSONsPaths.map((pkgPath) => path.parse(path.resolve(pkgPath)).dir);
-const packagePaths = packageJSONsPaths.map((pkgPath) => path.parse(pkgPath).dir);
-const packageNodeModulePaths = packagePaths.map((pkgPath) => path.join(pkgPath, 'node_modules'));
+const packageJSONsPaths = glob.sync('packages/*/**/package.json', { ignore: '**/node_modules/**' });
+const fullPackagePath = packageJSONsPaths.map(pkgPath => path.parse(path.resolve(pkgPath)).dir);
+const packagePaths = packageJSONsPaths.map(pkgPath => path.parse(pkgPath).dir);
+const packageNodeModulePaths = packagePaths.map(pkgPath => path.join(pkgPath, 'node_modules'));
 
 const accountActivityNodeModulePaths = glob
-    .sync('packages/account-activity/*/node_modules', {ignore: packageNodeModulePaths})
+    .sync('packages/account-activity/*/node_modules', { ignore: packageNodeModulePaths })
     .concat(
         glob
-            .sync('packages/account-activity/*/*/node_modules', {ignore: packageNodeModulePaths})
-            .concat(glob.sync('packages/account-activity/*/*/*/node_modules', {ignore: packageNodeModulePaths}))
+            .sync('packages/account-activity/*/*/node_modules', { ignore: packageNodeModulePaths })
+            .concat(glob.sync('packages/account-activity/*/*/*/node_modules', { ignore: packageNodeModulePaths })),
     );
 
 const buildTargetsAccountActivity = [
@@ -66,64 +66,55 @@ gulp.task('tslint', () => {
         .src(typescriptSources)
         .pipe(
             tslint({
-                formatter: 'stylish'
-            })
+                formatter: 'stylish',
+            }),
         )
-        .pipe(tslint.report({summarizeFailureOutput: true}));
+        .pipe(tslint.report({ summarizeFailureOutput: true }));
 });
 
 gulp.task('ts', () => {
     let failed = false;
-const result = gulp
-    .src(typescriptSources)
-    .pipe(tsProject(ts.reporter.fullReporter(false)))
-    .on('error', () => {
-    failed = true;
-})
-.on('finish', () => failed && process.exit(1));
+    const result = gulp
+        .src(typescriptSources)
+        .pipe(tsProject(ts.reporter.fullReporter(false)))
+        .on('error', () => {
+            failed = true;
+        })
+        .on('finish', () => failed && process.exit(1));
 
-return merge([result.js.pipe(gulp.dest(distFolder)), result.dts.pipe(gulp.dest(distFolder))]);
+    return merge([result.js.pipe(gulp.dest(distFolder)), result.dts.pipe(gulp.dest(distFolder))]);
 });
 
 // clean account activity files
-gulp.task('clean-account-activity', (done) => {
+gulp.task('clean-account-activity', done => {
     targetProject = 'account-activity';
     runSequence('clean:generated-' + targetProject + 'files', 'clean:old-' + targetProject + '-node_modules', done);
 });
 
 gulp.task('clean:generated-' + targetProject + 'files', () => {
     console.log('Clearing ' + targetProject + ' files');
-return del(
-    [
-        'packages/' + targetProject + '/*.d.ts',
-        'packages/' + targetProject + '/*.js',
-        'packages/' + targetProject + '/*.js.map',
-    ],
-    {
-        ignore: [
-            '**/node_modules/**'
-        ]
-    }
-).then(logDeletedPaths);
+    return del(
+        [
+            'packages/' + targetProject + '/*.d.ts',
+            'packages/' + targetProject + '/*.js',
+            'packages/' + targetProject + '/*.js.map',
+        ],
+        {
+            ignore: ['**/node_modules/**'],
+        },
+    ).then(logDeletedPaths);
 });
 
-gulp.task('clean:generated-files', () => {
+gulp.task('clean:generated-' + targetProject + 'files', () => {
     console.log('Clearing dist directories');
-return del(
-    [
-        'packages/' + targetProject + '/build'
-    ],
-    {
-        ignore: [
-            '**/node_modules/**'
-        ]
-    }
-).then(logDeletedPaths);
+    return del(['packages/' + targetProject + '/build'], {
+        ignore: ['**/node_modules/**'],
+    }).then(logDeletedPaths);
 });
 
 // clean account activity modules
 gulp.task('clean:old-' + targetProject + '-node_modules', () => {
-    switch(targetProject) {
+    switch (targetProject) {
         case 'account-activity': {
             return del(accountActivityNodeModulePaths).then(logDeletedPaths);
             break;
@@ -136,7 +127,7 @@ gulp.task('clean:old-' + targetProject + '-node_modules', () => {
 
 function logDeletedPaths(paths) {
     if (paths.length >= 1) {
-        const lines = paths.map((deletedPath) => `packages/${deletedPath.split('/packages/')[1]}`).join('\n');
+        const lines = paths.map(deletedPath => `packages/${deletedPath.split('/packages/')[1]}`).join('\n');
         console.log(`Deleted the following:`);
         console.log(`${lines}`);
     } else {
@@ -182,7 +173,7 @@ function distFolder(file) {
      *
      **/
     function isNestedDirectory(dir) {
-        return fullPackagePath.filter((packagePath) => packagePath === dir).length === 0;
+        return fullPackagePath.filter(packagePath => packagePath === dir).length === 0;
     }
 
     function isDistDir(dir) {
@@ -195,16 +186,16 @@ gulp.task('dist:move', () => {
 });
 
 gulp.task('dist:move:tsconfig', () => {
-    let streams = sourceDistDirectories.map((dir) => {
+    let streams = sourceDistDirectories.map(dir => {
         console.log('Starting move of ' + dir);
-return gulp.src('tsconfig.json').pipe(gulp.dest(dir));
-});
-return merge(streams);
+        return gulp.src('tsconfig.json').pipe(gulp.dest(dir));
+    });
+    return merge(streams);
 });
 
 gulp.task('build-account-activity', function(done) {
     targetProject = 'account-activity';
-    switch(targetProject) {
+    switch (targetProject) {
         case 'account-activity': {
             runSequence(...buildTargetsAccountActivity, done);
             break;
@@ -213,7 +204,6 @@ gulp.task('build-account-activity', function(done) {
             break;
         }
     }
-
 });
 
 gulp.task('build', function(done) {
@@ -222,30 +212,30 @@ gulp.task('build', function(done) {
 
 // Build without running the clean task at the beginning
 gulp.task('build:no-clean', function(done) {
-    runSequence(...buildTargets.filter((target) => target !== 'clean'), done);
+    runSequence(...buildTargets.filter(target => target !== 'clean'), done);
 });
 
 gulp.task('publish', () => {
-    return publishNewVersion({dryRun: false});
+    return publishNewVersion({ dryRun: false });
 });
 
 gulp.task('publish:dryrun', () => {
     return publishNewVersion();
 });
 
-function publishNewVersion(options = {dryRun: true}) {
+function publishNewVersion(options = { dryRun: true }) {
     return release
         .shouldReleaseChanges()
-        .then((shouldRelease) => {
-        if (shouldRelease) {
-            return release.publish(options);
-        }
-        console.log('Not releasing a new version');
-})
-.catch((err) => {
-        console.error('Publishing has failed :(', err);
-    throw err;
-});
+        .then(shouldRelease => {
+            if (shouldRelease) {
+                return release.publish(options);
+            }
+            console.log('Not releasing a new version');
+        })
+        .catch(err => {
+            console.error('Publishing has failed :(', err);
+            throw err;
+        });
 }
 
 gulp.task('gitFetch', () => {
@@ -257,7 +247,17 @@ gulp.task('stubby', function(cb) {
         files: ['mocks/stubby.yaml'],
         watch: 'mocks/stubby.yaml',
         mute: false,
-        location: '0.0.0.0'
+        location: '0.0.0.0',
     };
     stubby(options, cb);
+});
+
+gulp.task('link', done => {
+    return runSequence('link:commitizen', done);
+});
+
+gulp.task('link:commitizen', () => {
+    const nodeModules = path.resolve('node_modules');
+    console.log('Found node module path - ' + nodeModules);
+    return execa('npm', ['link', '@online/store-cz-lib'], { cwd: nodeModules });
 });

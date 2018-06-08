@@ -3,7 +3,7 @@ service: account-activity
 plugins:
   - serverless-webpack
   - serverless-offline
-  - serverless-aws-alias
+  - serverless-dotenv-plugin
 
 provider:
   name: aws
@@ -16,15 +16,27 @@ provider:
 
   environment:
       PLACE: "holder"
+      TABLE_NAME: ${env:TABLE_NAME}
+      GSI_NAME: ${env:GSI_NAME}
+      BUCKET_NAME: ${env:SLS_S3_BUCKET_NAME}
 
-  
+
   iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - dynamodb:UpdateItem
-      Resource:
-        Fn::GetAtt: [ AccountActivity, Arn ]
-  
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:Query
+        Resource:
+          Fn::GetAtt: [ activities, Arn ]
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+        Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.TABLE_NAME}/index/${self:provider.environment.GSI_NAME}"
+      - Effect: Allow
+        Action:
+          - s3:*
+        Resource: "arn:aws:s3:::${self:provider.environment.BUCKET_NAME}/*"
+
 
 package:
   individually: true
@@ -32,34 +44,59 @@ package:
     - ".*/**"
 
 functions:
-  account-activity:
-    handler: build/index.handler
-    environment:
-    
-      AccountActivity:
-        Ref: AccountActivity
-    
+  getActivities:
+    handler: build/getActivities.handler
+
     package:
       include:
         - build/**
 
     events:
       - http:
-          path: account-activity
+          path: account-activity/{customerId}
           method: get
 
+    tags:
+      APP: OnlineStore
+      TYPE: CustomerActivities
+
+  updateActivities:
+    handler: build/updateActivities.handler
+    package:
+      include:
+        - build/**
+
+    events:
+      - http:
+        path: account-activity/{customerId}
+        method: post
+#      - s3:
+#          bucket: ${env:SLS_S3_COMPASS_FILES_BUCKET_NAME}
+#          event: s3:ObjectCreated:*
+#          rules:
+#            - suffix: .RAW
 
 resources:
   Resources:
-    AccountActivity:
+    activities:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: AccountActivity
+        TableName: ${env:TABLE_NAME}
         AttributeDefinitions:
-          - AttributeName: id
+          - AttributeName: customerId
             AttributeType: S
+        GlobalSecondaryIndexes:
+          - IndexName: ${env:GSI_NAME}
+            KeySchema:
+              - AttributeName: productId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 5
+              WriteCapacityUnits: 5
         KeySchema:
-          - AttributeName: id
+          - AttributeName: customerId
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 5
@@ -67,8 +104,9 @@ resources:
         StreamSpecification:
           StreamViewType: NEW_IMAGE
 
-
-
 custom:
+  dotenv:
+    path: .env
+
   webpack:
     webpackConfig: '../../webpack.config.js'

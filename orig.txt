@@ -1,0 +1,237 @@
+"use strict";
+
+import { Handler, Context, Callback } from "aws-lambda";
+import * as AWS from "aws-sdk";
+
+const handler: Handler = (event: any, context: Context, callback: Callback) => {
+  // If you don't use that flag, your lambda function will not 'complete' and you will receive timeout error from your lambda function
+  context.callbackWaitsForEmptyEventLoop = false;
+
+  const responses = {
+    success: (data = {}, code = 200) => {
+      return {
+        statusCode: code,
+        headers: responseHeaders,
+        body: JSON.stringify(data)
+      };
+    },
+    error: (error: any) => {
+      return {
+        statusCode: error.code || 500,
+        headers: responseHeaders,
+        body: error.msg
+      };
+    }
+  };
+
+  const responseHeaders = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Credentials": true
+  };
+
+  const clientId = event.pathParameters.clientId;
+  const ACCOUNTS_TABLE = process.env.TABLE_NAME;
+  const GSI_NAME = process.env.GSI_NAME;
+  const dynamoDb = new AWS.DynamoDB.DocumentClient();
+
+  if (ACCOUNTS_TABLE && GSI_NAME) {
+    const params = {
+      TableName: ACCOUNTS_TABLE,
+      IndexName: GSI_NAME,
+      KeyConditionExpression: "clientId = :clientId",
+      ExpressionAttributeValues: {
+        ":clientId": +clientId
+      }
+    };
+
+    console.log("Get accounts, query params: " + JSON.stringify(params));
+
+    dynamoDb
+      .query(params)
+      .promise()
+      .then(data => {
+        if (data.Items && data.Items.length > 0) {
+          callback(null, responses.success(data.Items));
+        } else {
+          callback(
+            null,
+            responses.error({ code: "404", msg: "Accounts not found" })
+          );
+        }
+      })
+      .catch(error => {
+        console.error("Could not get account list: " + error);
+        callback(
+          null,
+          responses.error({ code: "400", msg: "Could not get account list" })
+        );
+      });
+  } else {
+    console.error("Some environment variables are missing!");
+  }
+};
+
+export { handler };
+
+update --------------------------------
+
+"use strict";
+
+import { Handler, Context, Callback } from "aws-lambda";
+import * as AWS from "aws-sdk";
+
+interface HelloResponse {
+  statusCode: number;
+  body: string;
+}
+
+const handler: Handler = (event: any, context: Context, callback: Callback) => {
+  AWS.config.update({ region: process.env.SLS_AWS_REGION });
+  const s3 = new AWS.S3();
+  // const dynamoDb = new AWS.DynamoDB();
+
+  event.Records.forEach((record: any) => {
+    const bucketName = record.s3.bucket.name;
+    const filename = record.s3.object.key;
+    console.log(
+      `New compass feed ${filename} has been uploaded to ${bucketName}`
+    );
+    const params = {
+      Bucket: bucketName,
+      Key: filename
+    };
+    let chunk;
+    const readable = s3.getObject(params).createReadStream();
+    readable.setEncoding("utf-8");
+
+    readable.on("readable", () => {
+      chunk = readable.read();
+      while (null !== chunk) {
+        console.log(`Feed body: ${chunk}`);
+        chunk = readable.read();
+      }
+    });
+  });
+
+  const response: HelloResponse = {
+    statusCode: 200,
+    body: JSON.stringify(event)
+  };
+
+  callback(undefined, response);
+};
+
+export { handler };
+
+serverless -----------------------
+
+service: account
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-webpack
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  memorySize: 2048 # optional, in MB, default is 1024
+  timeout: 30 # optional, in seconds, default is 6
+
+  stage: ${env:SLS_AWS_STAGE}
+  region: ${env:SLS_AWS_REGION}
+
+
+  environment:
+      PLACE: "holder"
+      TABLE_NAME: ${env:TABLE_NAME}
+      GSI_NAME: ${env:GSI_NAME}
+      BUCKET_NAME: ${env:SLS_S3_COMPASS_FILES_BUCKET_NAME}
+
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:UpdateItem
+        - dynamodb:Query
+      Resource:
+        Fn::GetAtt: [ accounts, Arn ]
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.TABLE_NAME}/index/${self:provider.environment.GSI_NAME}"
+    - Effect: Allow
+      Action:
+        - s3:*
+      Resource: "arn:aws:s3:::${self:provider.environment.BUCKET_NAME}/*"
+
+package:
+  individually: true
+  exclude:
+    - ".*/**"
+
+functions:
+  getAccounts:
+    handler: build/getAccounts.handler
+    package:
+      include:
+        - build/**
+    events:
+      - http:
+          path: account/{clientId}
+          method: get
+    tags:
+      APP: SimpleNeeds
+      TYPE: AllSuperAccounts
+
+  updateAccounts:
+    handler: build/updateAccounts.handler
+    package:
+      include:
+        - build/**
+
+    events:
+      - s3:
+          bucket: ${env:SLS_S3_COMPASS_FILES_BUCKET_NAME}
+          event: s3:ObjectCreated:*
+          rules:
+            - suffix: .RAW
+
+
+resources:
+  Resources:
+    accounts:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${env:TABLE_NAME}
+        AttributeDefinitions:
+          - AttributeName: accountNumber
+            AttributeType: 'N'
+          - AttributeName: clientId
+            AttributeType: 'N'
+        GlobalSecondaryIndexes:
+          - IndexName: ${env:GSI_NAME}
+            KeySchema:
+              - AttributeName: clientId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 5
+              WriteCapacityUnits: 5
+        KeySchema:
+          - AttributeName: accountNumber
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+        StreamSpecification:
+          StreamViewType: NEW_IMAGE
+
+
+custom:
+  dotenv:
+    path: .env
+
+  webpack:
+    webpackConfig: '../../webpack.config.js'
