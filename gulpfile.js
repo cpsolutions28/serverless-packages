@@ -107,7 +107,9 @@ gulp.task('clean:generated-' + targetProject + 'files', () => {
 
 gulp.task('clean:generated-' + targetProject + 'files', () => {
     console.log('Clearing dist directories');
-    return del(['packages/' + targetProject + '/build'], {
+    return del([
+        'packages/' + targetProject + '/.serverless',
+        'packages/' + targetProject + '/build'], {
         ignore: ['**/node_modules/**'],
     }).then(logDeletedPaths);
 });

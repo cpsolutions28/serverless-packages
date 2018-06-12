@@ -68,8 +68,8 @@ functions:
 
     events:
       - http:
-        path: account-activity/{customerId}
-        method: post
+          path: account-activity/{customerId}
+          method: post
 #      - s3:
 #          bucket: ${env:SLS_S3_COMPASS_FILES_BUCKET_NAME}
 #          event: s3:ObjectCreated:*
