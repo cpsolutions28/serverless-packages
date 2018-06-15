@@ -84,23 +84,13 @@ resources:
         TableName: ${env:TABLE_NAME}
         AttributeDefinitions:
           - AttributeName: customerId
-            AttributeType: S
-        GlobalSecondaryIndexes:
-          - IndexName: ${env:GSI_NAME}
-            KeySchema:
-              - AttributeName: productId
-                KeyType: HASH
-            Projection:
-              ProjectionType: ALL
-            ProvisionedThroughput:
-              ReadCapacityUnits: 5
-              WriteCapacityUnits: 5
+            AttributeType: N
         KeySchema:
           - AttributeName: customerId
             KeyType: HASH
         ProvisionedThroughput:
-          ReadCapacityUnits: 5
-          WriteCapacityUnits: 5
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
         StreamSpecification:
           StreamViewType: NEW_IMAGE
 

@@ -1,6 +1,6 @@
 'use strict';
 
-import { Handler, Context, Callback } from 'aws-lambda';
+import { Handler, Context, Callback } from "aws-lambda";
 import * as AWS from 'aws-sdk';
 
 const handler: Handler = (event: any, context: Context, callback: Callback) => {

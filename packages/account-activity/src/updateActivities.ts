@@ -17,7 +17,7 @@ const handler: Handler = (event: any, context: Context, callback: Callback) => {
         const bucketName = record.s3.bucket.name;
         const filename = record.s3.object.key;
         console.log(
-            `New compass feed ${filename} has been uploaded to ${bucketName}`
+            `New feed ${filename} has been uploaded to ${bucketName}`
         );
         const params = {
             Bucket: bucketName,
