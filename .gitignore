@@ -55,9 +55,6 @@ typings/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
-.env
-
 .sass-cache/
 main.css
 main.css.map
