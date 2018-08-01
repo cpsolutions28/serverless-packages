@@ -1,5 +1,7 @@
 # mono-serverless
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/cpsolutions28/serverless-packages.svg)](https://greenkeeper.io/)
+
 This is a monorepo of serverless functions built using yeoman.io generator https://github.com/zotoio/generator-mono-serverless
 
 ## install
